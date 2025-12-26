@@ -1,39 +1,53 @@
-# Documentación Técnica - Estación Meteorológica IoT
+# Documentación Técnica - IoT Weather Station
 
-## 1. Arquitectura General
-El sistema sigue una arquitectura de 3 capas (MVC simplificado):
-- **Base de Datos (MySQL)**: Almacenamiento persistente con optimización de índices.
-- **Backend (PHP)**: Lógica de negocio, validación de API, y cálculo de predicciones (EMA).
-- **Frontend (HTML/JS)**: Interfaz de usuario "Clean UI" con actualizaciones asíncronas (AJAX).
+## 1. Arquitectura del Sistema
+El sistema sigue una arquitectura modular en 3 capas:
+1.  **Frontend (Presentación)**: HTML5 + TailwindCSS + Chart.js. Comunicación asíncrona vía Fetch API.
+2.  **Backend (Lógica & API)**: PHP Vanilla 8.x. Endpoints RESTful para ingesta (`post-reading.php`) y consumo (`get-data.php`).
+3.  **Persistencia (Datos)**: MySQL 8.x con índices optimizados para series temporales.
 
-## 2. Flujo de Datos
-1. **Ingesta de Datos**:
-   - El dispositivo IoT envía un JSON Vía POST a `/api/post-reading.php`.
-   - El sistema valida la `api_key` contra la tabla `devices` utilizando el índice `idx_api_key` para máxima velocidad.
-   - Se recupera la última lectura para comparaciones (alertas de cambio).
-   - Se inserta la nueva lectura en `weather_readings`.
+## 2. Seguridad y Seguridad Web (OWASP)
+Se han implementado las siguientes medidas de mitigación:
 
-2. **Procesamiento de Alertas**:
-   - Inmediatamente después de la inserción, el sistema consulta las alertas activas para el dispositivo.
-   - Se evalúan las condiciones (`above`, `below`, `change`) en memoria.
-   - Si se cumple una condición, se registra en `alert_logs` manteniendo integridad referencial.
+*   **SQL Injection (SQLi)**: Uso obligatorio de Prepared Statements (PDO) en todas las consultas.
+*   **Cross-Site Scripting (XSS)**:
+    *   Salida de datos JSON codificada.
+    *   Validación de tipos de datos estricta en el backend (is_numeric).
+    *   El frontend manipula el DOM usando `textContent` en lugar de `innerHTML` para datos de usuario (exepto los iconos que son estáticos).
+*   **Autenticación API**: Validación de `api_key` contra base de datos índice hash (`idx_api_key`) para cada petición de escritura.
+*   **Manejo de Errores**: Los errores de BD se loguean en el error_log del servidor y no se exponen detalles al cliente (solo mensajes genéricos).
 
-3. **Visualización y Predicción**:
-   - El Dashboard consulta `/api/get-data.php` periódicamente (cada 30s).
-   - Se recuperan las últimas 50 lecturas.
-   - Se calcula el **Promedio Móvil Exponencial (EMA)** en el servidor (PHP) con $\alpha=0.3$.
-   - El frontend renderiza los datos históricos y la línea de tendencia EMA usando Chart.js.
+## 3. Flujo de Datos
 
-## 3. Seguridad
-- **Inyección SQL**: Prevenida totalmente mediante el uso de **Prepared Statements** (PDO) en todas las consultas (`includes/DB.php`).
-- **XSS**: El frontend asigna valores vía `textContent` en lugar de `innerHTML` para prevenir ejecución de scripts maliciosos.
-- **Validación de Tipos**: El API valida que los datos numéricos lo sean realmente antes de procesarlos.
-- **Integridad**: Uso de claves foráneas (`FOREIGN KEY`) y transacciones implícitas para asegurar consistencia.
+### A. Ingesta de Datos (IoT Device -> Server)
+1.  El dispositivo envía POST JSON a `/api/post-reading.php`.
+2.  **Validación**: Se verifica la API Key.
+3.  **Persistencia**: Se guarda la lectura en `weather_readings`.
+4.  **Procesamiento de Alertas**:
+    *   Se consultan las reglas activas de la tabla `alerts`.
+    *   Se compara el valor actual (o el cambio vs anterior).
+    *   Si se cumple la condición, se inserta en `alert_logs`.
+    *   El endpoint retorna los IDs generados y estado de alertas.
 
-## 4. Optimización
-- **Índices**: 
-  - `alerts(device_id, is_active)`: Para recuperar rápidamente reglas de alerta.
-  - `weather_readings(device_id, created_at)`: Para consultas de series temporales y Dashboard.
-- **Modularidad**:
-  - `DB.php`: Singleton para conexión eficiente.
-  - `WeatherService.php`: Capa de servicio para lógica reutilizable.
+### B. Visualización (Cliente -> Dashboard)
+1.  El Dashboard solicita datos a `/api/get-data.php?date=YYYY-MM-DD`.
+2.  **Backend**:
+    *   Recupera lecturas del día (o últimas disponibles).
+    *   Calcula EMA (Promedio Móvil Exponencial) en PHP (α=0.3).
+    *   Determina el "Estado del Clima" (Lluvioso, Soleado, etc.) basado en reglas estrictas.
+    *   Retorna JSON estructurado.
+3.  **Frontend**:
+    *   Renderiza métricas actuales y estado.
+    *   Grafica series "Real" vs "EMA" usando Chart.js.
+    *   Muestra lista de alertas recientes.
+
+## 4. Estructura de Base de Datos (Optimización)
+*   **Indices**:
+    *   `idx_device_date`: Optimiza consultas de rango de fechas y ordenamiento cronológico.
+    *   `idx_api_key`: Búsqueda O(1) para autenticación.
+*   **Integridad Ref.**: Claves foráneas con `ON DELETE CASCADE` para mantener consistencia.
+
+## 5. despliegue
+1.  Ejecutar script `database/schema.sql` en MySQL.
+2.  Configurar credenciales en `config.php`.
+3.  Asegurar permisos de `error_log`.

@@ -76,7 +76,12 @@
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold text-slate-800 tracking-tight" id="device-name">...</h1>
+                    <!-- Device Selector -->
+                    <select id="device-selector"
+                        class="text-2xl font-bold text-slate-800 bg-transparent border-none focus:ring-0 p-0 cursor-pointer mb-1 outline-none">
+                        <option value="" disabled selected>Cargando estaciones...</option>
+                    </select>
+
                     <div class="flex items-center gap-2">
                         <span id="status-dot" class="w-2 h-2 rounded-full bg-slate-300"></span>
                         <span id="status-text"
@@ -136,19 +141,32 @@
 
                 <!-- Secondary Metrics -->
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="glass-panel rounded-3xl p-5 shadow-sm weather-card-bg">
+                    <div class="glass-panel rounded-3xl p-5 shadow-sm weather-card-bg relative overflow-hidden">
+                        <div class="absolute right-2 top-2 opacity-10">
+                            <svg class="w-12 h-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z">
+                                </path>
+                            </svg>
+                        </div>
                         <div class="flex justify-between items-center mb-4"><span
                                 class="text-xs font-bold text-slate-400 uppercase">Humedad</span></div>
-                        <div class="flex items-end justify-between">
+                        <div class="flex items-end justify-between relative z-10">
                             <div><span class="text-2xl font-bold text-slate-800" id="val-hum">--</span><span
                                     class="text-sm text-slate-400">%</span></div>
                             <div class="bar-container" id="hum-bars"></div>
                         </div>
                     </div>
-                    <div class="glass-panel rounded-3xl p-5 shadow-sm weather-card-bg">
+                    <div class="glass-panel rounded-3xl p-5 shadow-sm weather-card-bg relative overflow-hidden">
+                        <div class="absolute right-2 top-2 opacity-10">
+                            <svg class="w-12 h-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
                         <div class="flex justify-between items-center mb-2"><span
                                 class="text-xs font-bold text-slate-400 uppercase">Presión</span></div>
-                        <div class="flex items-center justify-center py-1">
+                        <div class="flex items-center justify-center py-1 relative z-10">
                             <div class="relative flex items-center justify-center">
                                 <svg class="circle-chart" viewBox="0 0 36 36">
                                     <path class="circle-bg"
@@ -184,13 +202,28 @@
                     </div>
                 </div>
 
-                <!-- Alerts -->
-                <div class="glass-panel rounded-3xl p-6 shadow-sm bg-white">
-                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4 flex items-center gap-2">
-                        Alertas Recientes
-                    </h3>
-                    <div class="space-y-3 max-h-40 overflow-y-auto pr-2" id="alerts-container">
-                        <p class="text-xs text-slate-400">Cargando...</p>
+                <!-- Alerts & Activity Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Alerts -->
+                    <div class="glass-panel rounded-3xl p-6 shadow-sm bg-white">
+                        <h3
+                            class="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            Alertas Recientes
+                        </h3>
+                        <div class="space-y-3 max-h-40 overflow-y-auto pr-2" id="alerts-container">
+                            <p class="text-xs text-slate-400">Cargando...</p>
+                        </div>
+                    </div>
+
+                    <!-- Activity Log -->
+                    <div class="glass-panel rounded-3xl p-6 shadow-sm bg-white">
+                        <h3
+                            class="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            Actividad Reciente
+                        </h3>
+                        <div class="space-y-3 max-h-40 overflow-y-auto pr-2" id="activity-container">
+                            <p class="text-xs text-slate-400">Cargando...</p>
+                        </div>
                     </div>
                 </div>
             </div>

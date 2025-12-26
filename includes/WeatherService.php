@@ -15,14 +15,18 @@ class WeatherService
      * Determines Weather State based on metrics
      * Returns: [state_code, label, icon_name]
      */
+    /**
+     * Determines Weather State based on metrics
+     * Returns: [state_code, label, icon_name]
+     */
     public function calculateWeatherState($temp, $hum, $press)
     {
-        // Logic:
-        // Rain: Low Pressure (<1005) AND High Humidity (>80)
-        // Storm: Very Low Pressure (<990)
-        // Sunny: High Temp (>25) AND Low Humidity (<60)
-        // Cloudy: High Humidity (>60)
-        // Default: Partly Cloudy / Neutral
+        // Logic (Strict):
+        // Storm: Pressure < 990
+        // Rain: Pressure < 1005 AND Humidity > 80
+        // Sunny: Temperature > 25 AND Humidity < 60
+        // Cloudy: Humidity > 60
+        // Default: Variable
 
         if ($press < 990) {
             return ['code' => 'storm', 'label' => 'Tormenta', 'icon' => 'thunderstorms'];
@@ -37,7 +41,7 @@ class WeatherService
             return ['code' => 'cloudy', 'label' => 'Nublado', 'icon' => 'cloudy'];
         }
 
-        return ['code' => 'partly-cloudy', 'label' => 'Parcialmente Nublado', 'icon' => 'partly-cloudy-day'];
+        return ['code' => 'variable', 'label' => 'Variable', 'icon' => 'partly-cloudy-day'];
     }
 
     /**
@@ -112,6 +116,23 @@ class WeatherService
     public function getDeviceStatus($deviceId)
     {
         return $this->db->fetch("SELECT * FROM devices WHERE device_id = ?", [$deviceId]);
+    }
+    public function getActiveDevices()
+    {
+        return $this->db->fetchAll("SELECT device_id, name, location FROM devices WHERE is_active = 1 ORDER BY name ASC");
+    }
+
+    public function getRecentActivity($deviceId, $limit = 10)
+    {
+        // Combine Alerts and significant readings or just latest readings?
+        // Requirement says: "crea un registro de alertas y de la actividad reciente."
+        // Let's return just latest readings as activity log for now, separte from alerts.
+        $sql = "SELECT created_at, temperature, humidity, pressure 
+                FROM weather_readings 
+                WHERE device_id = ? 
+                ORDER BY created_at DESC 
+                LIMIT " . intval($limit);
+        return $this->db->fetchAll($sql, [$deviceId]);
     }
 }
 ?>

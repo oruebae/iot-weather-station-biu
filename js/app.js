@@ -2,7 +2,8 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
-    let currentDateFilter = new Date().toISOString().split('T')[0]; // Default Today
+    let currentDateFilter = new Date().toLocaleDateString('en-CA'); // Post format YYYY-MM-DD local
+    let currentDeviceId = null;
 
     // --- INIT ---
     // Set Date Picker default
@@ -33,15 +34,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateDashboard = async () => {
         try {
-            const response = await fetch(`api/get-data.php?date=${currentDateFilter}`);
+            let url = `api/get-data.php?date=${currentDateFilter}`;
+            if (currentDeviceId) {
+                url += `&device_id=${currentDeviceId}`;
+            }
+
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Network error');
             const data = await response.json();
 
             if (data.error) return;
 
+            // 0. Update Device Selector (Only if empty)
+            const selector = document.getElementById('device-selector');
+            if (selector.options.length <= 1 && data.devices) {
+                selector.innerHTML = ''; // Clear loading
+                data.devices.forEach(dev => {
+                    const opt = document.createElement('option');
+                    opt.value = dev.device_id;
+                    opt.textContent = dev.name;
+                    if (dev.device_id === data.device.id) opt.selected = true;
+                    selector.appendChild(opt);
+                });
+                // Set initial state
+                if (!currentDeviceId && data.devices.length > 0) {
+                    currentDeviceId = data.devices[0].device_id;
+                    // If we just set the ID, we might want to re-fetch if the server default wasn't this one.
+                    // But server default logic usually picks the first one anyway or specific logic.
+                }
+            }
+
             // 1. Header & Status
-            document.getElementById('device-name').textContent = data.device.name || 'Dispositivo';
-            const isOnline = data.device.status === 'online';
+            // document.getElementById('device-name').textContent = data.device.name || 'Dispositivo'; // Removed in favor of selector
+            const isOnline = data.device.is_online;
             document.getElementById('status-dot').className = `w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`;
             document.getElementById('status-text').className = `text-xs font-semibold uppercase tracking-wider ${isOnline ? 'text-emerald-600' : 'text-red-500'}`;
             document.getElementById('status-text').textContent = isOnline ? 'En Línea' : 'Desconectado';
@@ -49,16 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // 2. Weather State & Icon
             if (data.state) {
                 document.getElementById('weather-state').textContent = data.state.label;
-                // Simple Text Icon map for this iteration, or use SVG injection
-                // We'll use larger SVGs (w-12 h-12 to w-16 h-16)
                 const iconMap = {
                     'sunny': '<svg class="w-16 h-16 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>',
                     'rain': '<svg class="w-16 h-16 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>',
                     'storm': '<svg class="w-16 h-16 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>',
                     'cloudy': '<svg class="w-16 h-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>',
-                    'partly-cloudy': '<svg class="w-16 h-16 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>'
+                    'variable': '<svg class="w-16 h-16 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>'
                 };
-                document.getElementById('weather-icon').innerHTML = iconMap[data.state.code] || iconMap['partly-cloudy'];
+                document.getElementById('weather-icon').innerHTML = iconMap[data.state.code] || iconMap['variable'];
             }
 
             // 3. Current Metrics (Last of day)
@@ -70,9 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Visuals
                 const humContainer = document.getElementById('hum-bars');
                 humContainer.innerHTML = '';
+                // 5 bars representing 20% chunks
                 [20, 40, 60, 80, 100].forEach((l, i) => {
                     const bar = document.createElement('div');
-                    bar.className = `bar ${data.current.humidity >= l ? 'active' : ''}`;
+                    // e.g. Humidity 45 => 20(active), 40(active), 60(inactive)... 
+                    // Actually usually it is strict greater? 45 > 20 yes, 45 > 40 yes.
+                    const isActive = data.current.humidity >= (l - 19);
+                    bar.className = `bar ${isActive ? 'active' : ''}`;
                     bar.style.height = `${(i + 1) * 6 + 5}px`;
                     humContainer.appendChild(bar);
                 });
@@ -91,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('val-max').innerText = Math.max(...temps).toFixed(1);
 
                 // Trend
-                const lastEma = data.ema_temp[data.ema_temp.length - 1];
+                const lastEma = data.ema_temperature[data.ema_temperature.length - 1];
                 const diff = (parseFloat(data.current.temperature) - lastEma).toFixed(1);
                 document.getElementById('val-trend').innerText = (diff > 0 ? '+' : '') + diff + '°';
 
@@ -110,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     {
                         label: 'EMA',
-                        data: data.ema_temp,
+                        data: data.ema_temperature,
                         borderColor: '#6366F1',
                         borderWidth: 2,
                         borderDash: [5, 5],
@@ -141,6 +168,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 alertsContainer.innerHTML = '<p class="text-xs text-slate-400">Sin alertas recientes.</p>';
             }
 
+            // 6. Recent Activity
+            const activityContainer = document.getElementById('activity-container');
+            activityContainer.innerHTML = '';
+            if (data.activity && data.activity.length > 0) {
+                data.activity.forEach(log => {
+                    const el = document.createElement('div');
+                    el.className = 'flex items-center justify-between border-b border-slate-50 pb-2 last:border-0 text-sm';
+                    el.innerHTML = `
+                         <span class="text-slate-500">${new Date(log.created_at).toLocaleTimeString()}</span>
+                         <span class="font-medium text-slate-700">${log.temperature}°C / ${log.humidity}%</span>
+                    `;
+                    activityContainer.appendChild(el);
+                });
+            } else {
+                activityContainer.innerHTML = '<p class="text-xs text-slate-400">Sin actividad reciente.</p>';
+            }
+
         } catch (e) { console.error(e); }
     };
 
@@ -149,9 +193,15 @@ document.addEventListener('DOMContentLoaded', () => {
         currentDateFilter = e.target.value;
         updateDashboard();
     });
+
     document.getElementById('btn-today').addEventListener('click', () => {
-        currentDateFilter = new Date().toISOString().split('T')[0];
+        currentDateFilter = new Date().toLocaleDateString('en-CA');
         document.getElementById('date-picker').value = currentDateFilter;
+        updateDashboard();
+    });
+
+    document.getElementById('device-selector').addEventListener('change', (e) => {
+        currentDeviceId = e.target.value;
         updateDashboard();
     });
 
