@@ -3,8 +3,8 @@
 // Database Configuration
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'iot_weather');
-define('DB_USER', 'root');
-define('DB_PASS', ''); // WARNING: Change this in production!
+define('DB_USER', 'iotuser');
+define('DB_PASS', 'IotUser2025!'); // WARNING: Change this in production!
 
 // Timezone
 date_default_timezone_set('America/Bogota'); // Adjust to user's timezone if needed
