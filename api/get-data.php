@@ -4,12 +4,23 @@ require_once __DIR__ . '/../includes/WeatherService.php';
 
 header('Content-Type: application/json');
 
-// Default Device ID (In a real app, this might come from session or selection)
-$deviceId = $_GET['device_id'] ?? 'STATION-01';
+// Default Device ID Logic
+$deviceId = $_GET['device_id'] ?? null;
 $date = $_GET['date'] ?? date('Y-m-d');
 
 try {
     $service = new WeatherService();
+
+    // If no device ID specified, pick the first active one
+    if (!$deviceId) {
+        $activeDevices = $service->getActiveDevices();
+        if (!empty($activeDevices)) {
+            $deviceId = $activeDevices[0]['device_id'];
+        } else {
+            // Fallback if no devices exist at all
+            $deviceId = 'STATION-01';
+        }
+    }
 
     // 1. Get Readings for the specific date (for Charts & stats)
     $readings = $service->getReadingsByDate($deviceId, $date);
